@@ -3,7 +3,9 @@ spring:
   application:
     name: api-gateway
   config:
-    import: optional:file:../config-repo/api-gateway.yaml
+    import:
+      - optional:file:../config-repo/application.yaml
+      - optional:file:../config-repo/api-gateway.yaml
   cloud:
     config:
       enabled: false
