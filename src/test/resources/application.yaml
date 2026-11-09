@@ -1,0 +1,15 @@
+# Configuración de las pruebas: rutas leídas directamente de config-repo, sin config-server ni Eureka.
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:file:../config-repo/api-gateway.yaml
+  cloud:
+    config:
+      enabled: false
+    compatibility-verifier:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
