@@ -37,6 +37,8 @@ class ApiGatewayRoutesTest {
         "GET, /api/v1/accounts/a1/balance, transaction-service",
         "GET, /api/v1/accounts/a1/daily-average, transaction-service",
         "GET, /api/v1/accounts/a1/movements, transaction-service",
+        "POST, /api/v1/accounts/a1/transfers/own, transaction-service",
+        "POST, /api/v1/accounts/a1/transfers/third-party, transaction-service",
         "POST, /api/v1/credits, credit-service",
         "GET, /api/v1/credits/k1, credit-service",
         "POST, /api/v1/credits/k1/payments, transaction-service",
