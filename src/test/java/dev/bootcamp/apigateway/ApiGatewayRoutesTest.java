@@ -48,7 +48,9 @@ class ApiGatewayRoutesTest {
         "POST, /api/v1/credit-cards/t1/charges, transaction-service",
         "POST, /api/v1/credit-cards/t1/payments, transaction-service",
         "GET, /api/v1/credit-cards/t1/available-credit, transaction-service",
-        "GET, /api/v1/credit-cards/t1/movements, transaction-service"
+        "GET, /api/v1/credit-cards/t1/movements, transaction-service",
+        "GET, /api/v1/reports/products, transaction-service",
+        "GET, /api/v1/reports/credit-cards/t1/last-movements, transaction-service"
     })
     void routesEachPathToItsService(String method, String path, String service) {
         URI target = routeFor(HttpMethod.valueOf(method), path).getUri();
