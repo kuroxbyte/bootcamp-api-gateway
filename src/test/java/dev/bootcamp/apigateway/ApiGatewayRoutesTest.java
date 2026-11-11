@@ -27,6 +27,8 @@ class ApiGatewayRoutesTest {
 
     @ParameterizedTest(name = "{0} {1} -> {2}")
     @CsvSource({
+        "POST, /api/v1/auth/register, auth-service",
+        "POST, /api/v1/auth/login, auth-service",
         "POST, /api/v1/customers, customer-service",
         "GET, /api/v1/customers/c1, customer-service",
         "POST, /api/v1/accounts/savings, account-service",
