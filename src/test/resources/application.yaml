@@ -9,8 +9,6 @@ spring:
   cloud:
     config:
       enabled: false
-    compatibility-verifier:
-      enabled: false
 
 eureka:
   client:
