@@ -60,7 +60,15 @@ class ApiGatewayRoutesTest {
         "GET, /api/v1/credit-cards/t1/available-credit, transaction-service",
         "GET, /api/v1/credit-cards/t1/movements, transaction-service",
         "GET, /api/v1/reports/products, transaction-service",
-        "GET, /api/v1/reports/credit-cards/t1/last-movements, transaction-service"
+        "GET, /api/v1/reports/credit-cards/t1/last-movements, transaction-service",
+        "POST, /api/v1/auth/wallet-users, auth-service",
+        "POST, /api/v1/auth/wallet-login, auth-service",
+        "POST, /api/v1/yanki/wallets, yanki-service",
+        "GET, /api/v1/yanki/wallet, yanki-service",
+        "POST, /api/v1/yanki/payments, yanki-service",
+        "GET, /api/v1/yanki/payments/p1, yanki-service",
+        "POST, /api/v1/yanki/debit-card-links, yanki-service",
+        "POST, /api/v1/yanki/debit-card-links/l1/confirm, yanki-service"
     })
     void routesEachPathToItsService(String method, String path, String service) {
         URI target = routeFor(HttpMethod.valueOf(method), path).getUri();

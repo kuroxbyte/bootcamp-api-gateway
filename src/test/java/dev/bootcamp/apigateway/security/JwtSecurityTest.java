@@ -25,10 +25,12 @@ import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 
 /**
- * Seguridad del gateway: rutas públicas, 401 sin token o con un token inválido, y paso de las
- * peticiones con un token válido (sin servicios registrados responden 503 por el circuit breaker).
+ * Seguridad del gateway: rutas públicas, 401 sin token o con un token inválido, 403 si el rol no
+ * permite la ruta, y paso de las peticiones con un token válido (sin servicios registrados
+ * responden 503 por el circuit breaker).
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JwtSecurityTest {
@@ -60,6 +62,14 @@ class JwtSecurityTest {
     }
 
     private static String token(KeyPair keys, String issuer, Instant expiresAt) {
+        return token(keys, issuer, expiresAt, List.of("CUSTOMER"));
+    }
+
+    private static String token(
+            KeyPair keys,
+            String issuer,
+            Instant expiresAt,
+            List<String> roles) {
         RSAKey rsaKey = new RSAKey.Builder((RSAPublicKey) keys.getPublic())
                 .privateKey((RSAPrivateKey) keys.getPrivate())
                 .build();
@@ -68,6 +78,7 @@ class JwtSecurityTest {
                 .subject("c1")
                 .issuedAt(expiresAt.minusSeconds(3600))
                 .expiresAt(expiresAt)
+                .claim("roles", roles)
                 .build();
         return new NimbusJwtEncoder(new ImmutableJWKSet<>(new JWKSet(rsaKey)))
                 .encode(JwtEncoderParameters.from(
@@ -78,6 +89,10 @@ class JwtSecurityTest {
 
     private static String validToken() {
         return token(KEYS, ISSUER, Instant.now().plusSeconds(3600));
+    }
+
+    private static String tokenWithRoles(List<String> roles) {
+        return token(KEYS, ISSUER, Instant.now().plusSeconds(3600), roles);
     }
 
     @BeforeEach
@@ -134,5 +149,57 @@ class JwtSecurityTest {
     @Test
     void readingCustomerRequiresToken() {
         client.get().uri("/api/v1/customers/c1").exchange().expectStatus().isUnauthorized();
+    }
+
+    @Test
+    void walletTokenCannotUseBankRoutes() {
+        client.get().uri("/api/v1/accounts")
+                .headers(headers -> headers.setBearerAuth(tokenWithRoles(List.of("WALLET"))))
+                .exchange()
+                .expectStatus().isForbidden()
+                .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .expectBody()
+                .jsonPath("$.detail").isEqualTo("El token no permite usar esta ruta");
+    }
+
+    @Test
+    void tokenWithoutRolesCannotUseBankRoutes() {
+        client.get().uri("/api/v1/accounts")
+                .headers(headers -> headers.setBearerAuth(tokenWithRoles(List.of())))
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    void yankiRoutesNeedWalletTokenExceptWalletCreationAndCardAuthorization() {
+        String wallet = tokenWithRoles(List.of("WALLET"));
+        String customer = validToken();
+
+        client.post().uri("/api/v1/yanki/wallets")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isEqualTo(503);
+        client.get().uri("/api/v1/yanki/wallet").exchange().expectStatus().isUnauthorized();
+        client.get().uri("/api/v1/yanki/wallet")
+                .headers(headers -> headers.setBearerAuth(wallet))
+                .exchange()
+                .expectStatus().isEqualTo(503);
+        client.get().uri("/api/v1/yanki/wallet")
+                .headers(headers -> headers.setBearerAuth(customer))
+                .exchange()
+                .expectStatus().isForbidden();
+        client.post().uri("/api/v1/yanki/debit-card-links")
+                .headers(headers -> headers.setBearerAuth(customer))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isEqualTo(503);
+        client.post().uri("/api/v1/yanki/debit-card-links")
+                .headers(headers -> headers.setBearerAuth(wallet))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isForbidden();
     }
 }
