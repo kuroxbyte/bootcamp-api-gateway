@@ -30,6 +30,9 @@ import java.util.Base64;
  *       respuesta de respaldo del circuit breaker y el estado del gateway.
  *   <li>{@code /api/v1/yanki/**}: rol {@code WALLET}, salvo que un cliente autorice su tarjeta
  *       para un monedero ({@code POST /api/v1/yanki/debit-card-links}), que exige {@code CUSTOMER}.
+ *   <li>Rol {@code ADMIN} (empleado del banco): listar todos los clientes, dar de baja clientes,
+ *       modificar y dar de baja cuentas, créditos y tarjetas de crédito, y dar de baja tarjetas
+ *       de débito. Consultar y modificar un cliente: {@code CUSTOMER} o {@code ADMIN}.
  *   <li>El resto (productos bancarios): rol {@code CUSTOMER}.
  *   <li>Sin token, o con firma, emisor o vencimiento inválidos: 401. Con un rol que no permite la
  *       ruta: 403.
@@ -45,6 +48,14 @@ public class SecurityConfig {
     static final String ROLES_CLAIM = "roles";
     static final String CUSTOMER = "CUSTOMER";
     static final String WALLET = "WALLET";
+    static final String ADMIN = "ADMIN";
+
+    /**
+     * Productos que solo el administrador modifica ({@code PUT}) o da de baja ({@code DELETE}).
+     */
+    private static final String[] ADMIN_PRODUCT_PATHS = {
+        "/api/v1/accounts/*", "/api/v1/credits/*", "/api/v1/credit-cards/*"
+    };
 
     /**
      * Reglas de acceso por ruta.
@@ -66,6 +77,16 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.POST, "/api/v1/yanki/debit-card-links")
                         .hasRole(CUSTOMER)
                         .pathMatchers("/api/v1/yanki/**").hasRole(WALLET)
+                        // Administración: listar clientes, modificar y dar de baja productos.
+                        .pathMatchers(HttpMethod.GET, "/api/v1/customers").hasRole(ADMIN)
+                        .pathMatchers(HttpMethod.DELETE, "/api/v1/customers/*").hasRole(ADMIN)
+                        .pathMatchers(HttpMethod.GET, "/api/v1/customers/*")
+                        .hasAnyRole(CUSTOMER, ADMIN)
+                        .pathMatchers(HttpMethod.PUT, "/api/v1/customers/*")
+                        .hasAnyRole(CUSTOMER, ADMIN)
+                        .pathMatchers(HttpMethod.PUT, ADMIN_PRODUCT_PATHS).hasRole(ADMIN)
+                        .pathMatchers(HttpMethod.DELETE, ADMIN_PRODUCT_PATHS).hasRole(ADMIN)
+                        .pathMatchers(HttpMethod.DELETE, "/api/v1/debit-cards/*").hasRole(ADMIN)
                         .anyExchange().hasRole(CUSTOMER))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .authenticationEntryPoint(entryPoint)
