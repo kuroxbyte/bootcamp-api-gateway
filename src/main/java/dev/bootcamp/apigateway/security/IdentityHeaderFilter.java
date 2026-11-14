@@ -13,18 +13,19 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 /**
- * Envía a los microservicios la identidad tomada del token: {@code X-Customer-Id} para un token
- * de cliente y {@code X-Wallet-Id} para uno de monedero Yanki (rol {@code WALLET}), con el claim
- * {@code sub}.
+ * Envía a los microservicios la identidad tomada del token, con el claim {@code sub}:
+ * {@code X-Customer-Id} para un token de cliente, {@code X-Wallet-Id} para uno de monedero Yanki
+ * (rol {@code WALLET}) y {@code X-Admin-Id} para uno de empleado (rol {@code ADMIN}).
  *
- * <p>Siempre elimina los dos headers que manda el cliente antes de poner el que corresponde. Así
- * nadie puede operar con los productos o el monedero de otro.
+ * <p>Siempre elimina los tres headers que manda el cliente antes de poner el que corresponde. Así
+ * nadie puede operar con los productos o el monedero de otro, ni hacerse pasar por empleado.
  */
 @Component
 public class IdentityHeaderFilter implements GlobalFilter, Ordered {
 
     static final String CUSTOMER_ID_HEADER = "X-Customer-Id";
     static final String WALLET_ID_HEADER = "X-Wallet-Id";
+    static final String ADMIN_ID_HEADER = "X-Admin-Id";
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -44,9 +45,13 @@ public class IdentityHeaderFilter implements GlobalFilter, Ordered {
 
     private static String headerFor(Jwt jwt) {
         List<String> roles = jwt.getClaimAsStringList(SecurityConfig.ROLES_CLAIM);
-        return roles != null && roles.contains(SecurityConfig.WALLET)
-                ? WALLET_ID_HEADER
-                : CUSTOMER_ID_HEADER;
+        if (roles == null) {
+            return CUSTOMER_ID_HEADER;
+        }
+        if (roles.contains(SecurityConfig.ADMIN)) {
+            return ADMIN_ID_HEADER;
+        }
+        return roles.contains(SecurityConfig.WALLET) ? WALLET_ID_HEADER : CUSTOMER_ID_HEADER;
     }
 
     private static ServerWebExchange withIdentity(
@@ -57,6 +62,7 @@ public class IdentityHeaderFilter implements GlobalFilter, Ordered {
                 .headers(headers -> {
                     headers.remove(CUSTOMER_ID_HEADER);
                     headers.remove(WALLET_ID_HEADER);
+                    headers.remove(ADMIN_ID_HEADER);
                     if (header != null) {
                         headers.set(header, id);
                     }

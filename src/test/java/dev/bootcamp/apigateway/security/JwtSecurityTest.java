@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -201,5 +202,56 @@ class JwtSecurityTest {
                 .bodyValue("{}")
                 .exchange()
                 .expectStatus().isForbidden();
+    }
+
+    @Test
+    void administrationRoutesNeedAdminToken() {
+        String admin = tokenWithRoles(List.of("ADMIN"));
+        String customer = validToken();
+
+        expect(HttpMethod.GET, "/api/v1/customers", admin, 503);
+        expect(HttpMethod.GET, "/api/v1/customers", customer, 403);
+        expect(HttpMethod.DELETE, "/api/v1/customers/c1", admin, 503);
+        expect(HttpMethod.DELETE, "/api/v1/customers/c1", customer, 403);
+        for (String path : List.of("/api/v1/accounts/a1", "/api/v1/credits/k1",
+                "/api/v1/credit-cards/t1")) {
+            expect(HttpMethod.PUT, path, admin, 503);
+            expect(HttpMethod.PUT, path, customer, 403);
+            expect(HttpMethod.DELETE, path, admin, 503);
+            expect(HttpMethod.DELETE, path, customer, 403);
+        }
+        expect(HttpMethod.DELETE, "/api/v1/debit-cards/d1", admin, 503);
+        expect(HttpMethod.DELETE, "/api/v1/debit-cards/d1", customer, 403);
+    }
+
+    @Test
+    void customerAndAdminCanReadAndUpdateCustomer() {
+        String admin = tokenWithRoles(List.of("ADMIN"));
+        String customer = validToken();
+
+        for (String token : List.of(admin, customer)) {
+            expect(HttpMethod.GET, "/api/v1/customers/c1", token, 503);
+            expect(HttpMethod.PUT, "/api/v1/customers/c1", token, 503);
+        }
+        expect(HttpMethod.PUT, "/api/v1/customers/c1", tokenWithRoles(List.of("WALLET")), 403);
+    }
+
+    @Test
+    void adminTokenCannotOperateCustomerProducts() {
+        String admin = tokenWithRoles(List.of("ADMIN"));
+
+        expect(HttpMethod.GET, "/api/v1/accounts", admin, 403);
+        expect(HttpMethod.POST, "/api/v1/accounts/a1/deposits", admin, 403);
+        // Cambiar la cuenta principal de una tarjeta sigue siendo del cliente.
+        expect(HttpMethod.PUT, "/api/v1/debit-cards/d1/primary-account", validToken(), 503);
+    }
+
+    private void expect(HttpMethod method, String path, String token, int status) {
+        client.method(method).uri(path)
+                .headers(headers -> headers.setBearerAuth(token))
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{}")
+                .exchange()
+                .expectStatus().isEqualTo(status);
     }
 }

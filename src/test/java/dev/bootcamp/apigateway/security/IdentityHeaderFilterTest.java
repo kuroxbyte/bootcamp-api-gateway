@@ -29,7 +29,8 @@ class IdentityHeaderFilterTest {
     private static ServerWebExchange requestWithForgedHeaders() {
         return MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/accounts")
                 .header("X-Customer-Id", "otro-cliente")
-                .header("X-Wallet-Id", "otro-monedero"));
+                .header("X-Wallet-Id", "otro-monedero")
+                .header("X-Admin-Id", "falso-admin"));
     }
 
     private HttpHeaders forwardedHeaders(Jwt jwt) {
@@ -78,5 +79,20 @@ class IdentityHeaderFilterTest {
         HttpHeaders headers = forwarded.get().getRequest().getHeaders();
         assertThat(headers.containsHeader("X-Customer-Id")).isFalse();
         assertThat(headers.containsHeader("X-Wallet-Id")).isFalse();
+    }
+
+    @Test
+    void adminTokenSendsOnlyTheAdminId() {
+        HttpHeaders headers = forwardedHeaders(token("admin", "ADMIN"));
+
+        assertThat(headers.get("X-Admin-Id")).containsExactly("admin");
+        assertThat(headers.containsHeader("X-Customer-Id")).isFalse();
+        assertThat(headers.containsHeader("X-Wallet-Id")).isFalse();
+    }
+
+    @Test
+    void customerTokenCannotForwardForgedAdminId() {
+        assertThat(forwardedHeaders(token("c1", "CUSTOMER")).containsHeader("X-Admin-Id"))
+                .isFalse();
     }
 }
